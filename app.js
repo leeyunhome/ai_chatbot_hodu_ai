@@ -15,7 +15,7 @@
     history: JSON.parse(localStorage.getItem('nova_history') || '[]'),
     isStreaming: false,
     isVoiceMode: false,
-    selectedImages: [], // Array of { data: base64, mimeType: string }
+    selectedFiles: [], // Array of { data: base64, mimeType: string, type: 'image'|'pdf', text?: string }
   };
 
   // --- DOM Elements ---
@@ -97,7 +97,7 @@
     micBtn.addEventListener('click', handleMicClick);
     voiceModeBtn.addEventListener('click', toggleVoiceMode);
     imageBtn.addEventListener('click', () => imageInput.click());
-    imageInput.addEventListener('change', handleImageSelect);
+    imageInput.addEventListener('change', handleFileSelect);
     closePreviewBtn.addEventListener('click', () => previewPanel.classList.add('hidden'));
 
     // Suggestion chips
@@ -204,11 +204,22 @@
     if (welcomeMsg) welcomeMsg.style.display = 'none';
 
     // Add user message
-    addMessage('user', msg, STATE.selectedImages);
+    addMessage('user', msg, STATE.selectedFiles);
     
+    // Build prompt with PDF context if any
+    let contextMsg = msg;
+    const pdfTexts = STATE.selectedFiles
+      .filter(f => f.type === 'pdf' && f.text)
+      .map(f => `[파일 내용: ${f.name}]\n${f.text}`)
+      .join('\n\n');
+    
+    if (pdfTexts) {
+      contextMsg = `다음은 사용자가 업로드한 파일의 내용입니다. 이 내용을 참고하여 질문에 답하세요.\n\n${pdfTexts}\n\n질문: ${msg}`;
+    }
+
     // Add to history
-    const userParts = [{ text: msg }];
-    STATE.selectedImages.forEach(img => {
+    const userParts = [{ text: contextMsg }];
+    STATE.selectedFiles.filter(f => f.type === 'image').forEach(img => {
       userParts.push({
         inlineData: {
           data: img.data,
@@ -220,18 +231,18 @@
     STATE.history.push({ role: 'user', parts: userParts });
     saveHistory();
 
-    // Clear input & images
+    // Clear input & files
     messageInput.value = '';
     messageInput.style.height = 'auto';
     sendBtn.disabled = true;
-    clearImages();
+    clearFiles();
 
     // Show typing & call API
     const typingEl = showTyping();
-    callGeminiAPI(msg, typingEl);
+    callGeminiAPI(contextMsg, typingEl);
   }
 
-  function addMessage(role, content, images = []) {
+  function addMessage(role, content, files = []) {
     const row = document.createElement('div');
     row.className = `message-row ${role}`;
 
@@ -246,18 +257,29 @@
     bubble.className = 'message-bubble';
     
     // Add images if any
-    if (images.length > 0) {
-      images.forEach(img => {
-        const imgEl = document.createElement('img');
-        imgEl.src = `data:${img.mimeType};base64,${img.data}`;
-        imgEl.className = 'chat-image';
-        imgEl.onclick = () => window.open(imgEl.src);
-        bubble.appendChild(imgEl);
+    if (files.length > 0) {
+      files.forEach(file => {
+        if (file.type === 'image') {
+          const imgEl = document.createElement('img');
+          imgEl.src = `data:${file.mimeType};base64,${file.data}`;
+          imgEl.className = 'chat-image';
+          imgEl.onclick = () => window.open(imgEl.src);
+          bubble.appendChild(imgEl);
+        } else if (file.type === 'pdf') {
+          const pdfEl = document.createElement('div');
+          pdfEl.className = 'chat-pdf-info';
+          pdfEl.innerHTML = `📄 PDF 파일 업로드됨: <strong>${file.name}</strong>`;
+          bubble.appendChild(pdfEl);
+        }
       });
     }
 
     const textEl = document.createElement('div');
-    textEl.innerHTML = role === 'ai' ? renderMarkdown(content) : escapeHtml(content);
+    // For user messages, show the original msg, not the one with context
+    const displayContent = (role === 'user' && content.includes('질문: ')) 
+      ? content.split('질문: ').pop() 
+      : content;
+    textEl.innerHTML = role === 'ai' ? renderMarkdown(displayContent) : escapeHtml(displayContent);
     bubble.appendChild(textEl);
 
     const footer = document.createElement('div');
@@ -612,56 +634,100 @@
     window.speechSynthesis.speak(utterance);
   }
 
-  // --- Image Handling ---
-  async function handleImageSelect(e) {
+  // --- File Handling ---
+  async function handleFileSelect(e) {
     const files = Array.from(e.target.files);
     for (const file of files) {
-      if (!file.type.startsWith('image/')) continue;
-      
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target.result.split(',')[1];
-        const imageData = {
-          data: base64,
-          mimeType: file.type,
-          id: Date.now() + Math.random()
-        };
-        STATE.selectedImages.push(imageData);
-        renderImagePreviews();
-      };
-      reader.readAsDataURL(file);
+      if (file.type.startsWith('image/')) {
+        await processImage(file);
+      } else if (file.type === 'application/pdf') {
+        await processPDF(file);
+      }
     }
     imageInput.value = ''; // Reset for same file select
   }
 
-  function renderImagePreviews() {
-    if (STATE.selectedImages.length > 0) {
+  async function processImage(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target.result.split(',')[1];
+        STATE.selectedFiles.push({
+          data: base64,
+          mimeType: file.type,
+          type: 'image',
+          id: Date.now() + Math.random()
+        });
+        renderFilePreviews();
+        resolve();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function processPDF(file) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+
+      STATE.selectedFiles.push({
+        name: file.name,
+        text: fullText,
+        type: 'pdf',
+        id: Date.now() + Math.random()
+      });
+      renderFilePreviews();
+    } catch (error) {
+      console.error('PDF error:', error);
+      showError('PDF 파일을 읽는 중 오류가 발생했습니다.');
+    }
+  }
+
+  function renderFilePreviews() {
+    if (STATE.selectedFiles.length > 0) {
       imagePreviewContainer.classList.remove('hidden');
     } else {
       imagePreviewContainer.classList.add('hidden');
     }
 
     imagePreviewContainer.innerHTML = '';
-    STATE.selectedImages.forEach(img => {
+    STATE.selectedFiles.forEach(file => {
       const preview = document.createElement('div');
-      preview.className = 'image-preview';
-      preview.innerHTML = `
-        <img src="data:${img.mimeType};base64,${img.data}">
-        <button class="remove-image-btn" onclick="window.removeHoduImage(${img.id})">✕</button>
-      `;
+      preview.className = file.type === 'image' ? 'image-preview' : 'pdf-preview';
+      
+      if (file.type === 'image') {
+        preview.innerHTML = `<img src="data:${file.mimeType};base64,${file.data}">`;
+      } else {
+        preview.innerHTML = `<div class="pdf-name">${file.name.substring(0, 10)}...</div>`;
+      }
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-image-btn';
+      removeBtn.innerHTML = '✕';
+      removeBtn.onclick = () => removeHoduFile(file.id);
+      
+      preview.appendChild(removeBtn);
       imagePreviewContainer.appendChild(preview);
     });
     sendBtn.disabled = false;
   }
 
-  window.removeHoduImage = (id) => {
-    STATE.selectedImages = STATE.selectedImages.filter(img => img.id !== id);
-    renderImagePreviews();
+  window.removeHoduFile = (id) => {
+    STATE.selectedFiles = STATE.selectedFiles.filter(f => f.id !== id);
+    renderFilePreviews();
   };
 
-  function clearImages() {
-    STATE.selectedImages = [];
-    renderImagePreviews();
+  function clearFiles() {
+    STATE.selectedFiles = [];
+    renderFilePreviews();
   }
 
   // --- Artifacts (Code Preview) ---
