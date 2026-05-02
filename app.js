@@ -768,6 +768,7 @@
 
   // --- Summary Report ---
   async function handleSummaryClick() {
+    console.log('Summary button clicked!');
     if (STATE.history.length === 0) {
       showError('요약할 대화 내용이 없습니다.');
       return;
