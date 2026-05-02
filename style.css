@@ -393,13 +393,40 @@ a:hover { text-decoration: underline; }
   border-bottom-left-radius: 4px;
   color: var(--text-primary);
 }
+.message-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.message-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.message-row.user .message-footer { justify-content: flex-end; }
+.message-row.ai .message-footer { justify-content: flex-start; }
+
 .message-time {
   font-size: 0.7rem;
   color: var(--text-muted);
-  margin-top: 4px;
-  text-align: right;
 }
-.message-row.ai .message-time { text-align: left; }
+.message-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.message-action-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--accent-1);
+}
 
 /* Typing Indicator */
 .typing-indicator {

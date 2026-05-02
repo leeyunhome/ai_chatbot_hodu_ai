@@ -240,6 +240,8 @@
     avatar.textContent = role === 'user' ? '나' : '✦';
 
     const bubbleWrap = document.createElement('div');
+    bubbleWrap.className = 'message-bubble-wrap';
+
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
     
@@ -258,12 +260,26 @@
     textEl.innerHTML = role === 'ai' ? renderMarkdown(content) : escapeHtml(content);
     bubble.appendChild(textEl);
 
+    const footer = document.createElement('div');
+    footer.className = 'message-footer';
+
     const time = document.createElement('div');
     time.className = 'message-time';
     time.textContent = formatTime(new Date());
+    footer.appendChild(time);
+
+    // Add Speaker button for AI
+    if (role === 'ai') {
+      const speakBtn = document.createElement('button');
+      speakBtn.className = 'message-action-btn';
+      speakBtn.title = '음성으로 듣기';
+      speakBtn.innerHTML = '🔊';
+      speakBtn.onclick = () => speak(content);
+      footer.appendChild(speakBtn);
+    }
 
     bubbleWrap.appendChild(bubble);
-    bubbleWrap.appendChild(time);
+    bubbleWrap.appendChild(footer);
     row.appendChild(avatar);
     row.appendChild(bubbleWrap);
     chatMessages.appendChild(row);
