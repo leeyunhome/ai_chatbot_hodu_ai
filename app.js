@@ -48,6 +48,11 @@
   const previewPanel = $('#preview-panel');
   const previewIframe = $('#preview-iframe');
   const closePreviewBtn = $('#close-preview-btn');
+  const summaryBtn = $('#summary-btn');
+  const summaryModal = $('#summary-modal');
+  const closeSummaryBtn = $('#close-summary-btn');
+  const printSummaryBtn = $('#print-summary-btn');
+  const summaryReportBody = $('#summary-report-body');
 
   // --- Initialize ---
   function init() {
@@ -99,6 +104,9 @@
     imageBtn.addEventListener('click', () => imageInput.click());
     imageInput.addEventListener('change', handleFileSelect);
     closePreviewBtn.addEventListener('click', () => previewPanel.classList.add('hidden'));
+    summaryBtn.addEventListener('click', handleSummaryClick);
+    closeSummaryBtn.addEventListener('click', () => summaryModal.classList.add('hidden'));
+    printSummaryBtn.addEventListener('click', () => window.print());
 
     // Suggestion chips
     document.querySelectorAll('.suggestion-chip').forEach(chip => {
@@ -756,6 +764,62 @@
   function clearFiles() {
     STATE.selectedFiles = [];
     renderFilePreviews();
+  }
+
+  // --- Summary Report ---
+  async function handleSummaryClick() {
+    if (STATE.history.length === 0) {
+      showError('요약할 대화 내용이 없습니다.');
+      return;
+    }
+
+    summaryModal.classList.remove('hidden');
+    summaryReportBody.innerHTML = '<div class="report-loading">AI가 대화와 문서를 분석하여 레포트를 작성 중입니다. 잠시만 기다려 주세요...</div>';
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${STATE.model}:generateContent?key=${STATE.apiKey}`;
+      
+      // Collect all context
+      const chatHistoryText = STATE.history.map(h => {
+        const text = h.parts.find(p => p.text)?.text || '';
+        return `${h.role === 'user' ? '사용자' : 'Hodu'}: ${text}`;
+      }).join('\n');
+
+      const prompt = `당신은 전문 문서 요약가입니다. 다음 대화 내용과 업로드된 문서 정보를 바탕으로 '요약 레포트'를 작성해 주세요. 
+레포트는 HTML 형식으로 작성하되, <h1>, <h2>, <p>, <ul>, <li> 태그만 사용하세요. 
+내용은 다음을 포함해야 합니다:
+1. 제목 (<h1>)
+2. 전체 요약 요약 (<h2> 후 <p>)
+3. 주요 주제별 핵심 포인트 (<h2> 후 <ul>)
+4. 향후 권장 사항 또는 결론 (<h2> 후 <p>)
+
+대화 내용:
+${chatHistoryText}`;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.5, maxOutputTokens: 2048 }
+        }),
+      });
+
+      if (!res.ok) throw new Error('요약 생성 중 오류가 발생했습니다.');
+      
+      const data = await res.json();
+      const summaryHtml = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!summaryHtml) throw new Error('요약을 생성하지 못했습니다.');
+
+      // Clean the response if it includes markdown code blocks
+      const cleanHtml = summaryHtml.replace(/```html|```/g, '').trim();
+      summaryReportBody.innerHTML = cleanHtml;
+      
+    } catch (error) {
+      console.error('Summary error:', error);
+      summaryReportBody.innerHTML = `<div class="error-msg">⚠️ 요약 레포트를 생성할 수 없습니다: ${error.message}</div>`;
+    }
   }
 
   // --- Artifacts (Code Preview) ---

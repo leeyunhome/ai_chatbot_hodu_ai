@@ -57,6 +57,7 @@
       </div>
       <div class="header-right">
         <button id="voice-mode-btn" class="header-btn" title="음성 대화 모드">🎙️</button>
+        <button id="summary-btn" class="header-btn" title="대화 요약 레포트">📋</button>
         <button id="new-chat-btn" class="header-btn" title="새 대화">＋</button>
         <button id="settings-btn" class="header-btn" title="설정">⚙</button>
       </div>
@@ -142,6 +143,24 @@
           <button id="save-settings-btn" class="save-settings-btn">설정 저장</button>
           <hr class="setting-divider">
           <button id="clear-history-btn" class="danger-btn">대화 기록 전체 삭제</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Report Modal -->
+    <div id="summary-modal" class="modal-overlay hidden">
+      <div class="modal-card report-modal">
+        <div class="modal-header">
+          <h2>📊 AI 대화 요약 레포트</h2>
+          <button id="close-summary-btn" class="modal-close-btn">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="summary-report-body" class="report-content">
+            <div class="report-loading">요약 레포트를 작성 중입니다...</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="print-summary-btn" class="save-settings-btn">🖨️ 인쇄하기 / PDF 저장</button>
         </div>
       </div>
     </div>
