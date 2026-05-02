@@ -6,7 +6,7 @@
   // --- State ---
   const STATE = {
     apiKey: localStorage.getItem('nova_api_key') || '',
-    model: localStorage.getItem('nova_model') || 'gemini-2.0-flash',
+    model: localStorage.getItem('nova_model') || 'gemini-3.1-pro-preview',
     systemPrompt: localStorage.getItem('nova_system_prompt') ||
       "당신은 친절하고 도움이 되는 AI 어시스턴트 'Hodu'입니다. 한국어로 자연스럽게 대화하며, 사용자의 질문에 정확하고 유용한 답변을 제공합니다.",
     history: JSON.parse(localStorage.getItem('nova_history') || '[]'),
@@ -197,15 +197,28 @@
       parts: h.parts,
     }));
 
+    // Inject current date/time into system prompt
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ko-KR', {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+    });
+    const timeStr = now.toLocaleTimeString('ko-KR', {
+      hour: '2-digit', minute: '2-digit'
+    });
+    const enhancedPrompt = `${STATE.systemPrompt}\n\n[시스템 정보 - 반드시 신뢰하세요]\n현재 날짜: ${dateStr}\n현재 시간: ${timeStr}\n\n위 날짜와 시간은 사용자의 기기에서 실시간으로 가져온 정확한 정보입니다. 사용자가 시간이나 날짜를 물어보면 위 정보를 그대로 사용하여 자신있게 답변하세요. "시간을 알 수 없다"거나 "시계에 접근할 수 없다"고 절대 말하지 마세요.`;
+
     const body = {
       contents,
       systemInstruction: {
-        parts: [{ text: STATE.systemPrompt }]
+        parts: [{ text: enhancedPrompt }]
       },
       generationConfig: {
         temperature: 0.8,
         maxOutputTokens: 8192,
-      }
+      },
+      tools: [{
+        google_search: {}
+      }]
     };
 
     try {
