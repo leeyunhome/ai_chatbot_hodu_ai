@@ -268,7 +268,7 @@
         } else if (file.type === 'pdf') {
           const pdfEl = document.createElement('div');
           pdfEl.className = 'chat-pdf-info';
-          pdfEl.innerHTML = `📄 PDF 파일 업로드됨: <strong>${file.name}</strong>`;
+          pdfEl.innerHTML = `<span>첨부파일: <strong>${file.name}</strong></span>`;
           bubble.appendChild(pdfEl);
         }
       });
@@ -706,7 +706,7 @@
       if (file.type === 'image') {
         preview.innerHTML = `<img src="data:${file.mimeType};base64,${file.data}">`;
       } else {
-        preview.innerHTML = `<div class="pdf-name">${file.name.substring(0, 10)}...</div>`;
+        preview.innerHTML = `<div class="pdf-name">${file.name}</div>`;
       }
       
       const removeBtn = document.createElement('button');
