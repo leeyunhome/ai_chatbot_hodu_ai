@@ -57,18 +57,35 @@
       </div>
     </header>
 
-    <main class="chat-messages" id="chat-messages">
-      <div class="welcome-message" id="welcome-message">
-        <h2>무엇이든 물어보세요! ✨</h2>
-        <p>코딩, 글쓰기, 번역, 분석 등 다양한 주제로 대화할 수 있어요.</p>
-        <div class="suggestion-chips">
-          <button class="suggestion-chip" data-prompt="오늘 하루 생산성을 높이는 팁 알려줘">🚀 생산성 팁</button>
-          <button class="suggestion-chip" data-prompt="재미있는 이야기 하나 해줘">📖 재미있는 이야기</button>
-          <button class="suggestion-chip" data-prompt="Python으로 간단한 게임 만드는 법 알려줘">🐍 Python 게임</button>
-          <button class="suggestion-chip" data-prompt="맛있는 파스타 레시피 추천해줘">🍝 파스타 레시피</button>
+    <div class="chat-body">
+      <main class="chat-messages" id="chat-messages">
+        <div class="welcome-message" id="welcome-message">
+          <h2>무엇이든 물어보세요! ✨</h2>
+          <p>코딩, 글쓰기, 번역, 분석 등 다양한 주제로 대화할 수 있어요.</p>
+          <div class="suggestion-chips">
+            <button class="suggestion-chip" data-prompt="오늘 하루 생산성을 높이는 팁 알려줘">🚀 생산성 팁</button>
+            <button class="suggestion-chip" data-prompt="재미있는 이야기 하나 해줘">📖 재미있는 이야기</button>
+            <button class="suggestion-chip" data-prompt="Python으로 간단한 게임 만드는 법 알려줘">🐍 Python 게임</button>
+            <button class="suggestion-chip" data-prompt="맛있는 파스타 레시피 추천해줘">🍝 파스타 레시피</button>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+
+      <aside id="preview-panel" class="preview-panel hidden">
+        <div class="preview-header">
+          <div class="preview-info">
+            <span class="preview-icon">💻</span>
+            <span class="preview-title">UI 미리보기</span>
+          </div>
+          <div class="preview-actions">
+            <button id="close-preview-btn" class="preview-close-btn" title="닫기">✕</button>
+          </div>
+        </div>
+        <div class="preview-content">
+          <iframe id="preview-iframe" sandbox="allow-scripts"></iframe>
+        </div>
+      </aside>
+    </div>
 
     <footer class="chat-input-area">
       <div id="image-preview-container" class="image-preview-container hidden"></div>

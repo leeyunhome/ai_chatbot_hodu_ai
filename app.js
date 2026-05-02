@@ -45,6 +45,9 @@
   const imageBtn = $('#image-btn');
   const imageInput = $('#image-input');
   const imagePreviewContainer = $('#image-preview-container');
+  const previewPanel = $('#preview-panel');
+  const previewIframe = $('#preview-iframe');
+  const closePreviewBtn = $('#close-preview-btn');
 
   // --- Initialize ---
   function init() {
@@ -95,6 +98,7 @@
     voiceModeBtn.addEventListener('click', toggleVoiceMode);
     imageBtn.addEventListener('click', () => imageInput.click());
     imageInput.addEventListener('change', handleImageSelect);
+    closePreviewBtn.addEventListener('click', () => previewPanel.classList.add('hidden'));
 
     // Suggestion chips
     document.querySelectorAll('.suggestion-chip').forEach(chip => {
@@ -316,7 +320,7 @@
     const timeStr = now.toLocaleTimeString('ko-KR', {
       hour: '2-digit', minute: '2-digit'
     });
-    const enhancedPrompt = `${STATE.systemPrompt}\n\n[시스템 정보 - 반드시 신뢰하세요]\n현재 날짜: ${dateStr}\n현재 시간: ${timeStr}\n\n위 날짜와 시간은 사용자의 기기에서 실시간으로 가져온 정확한 정보입니다. 사용자가 시간이나 날짜를 물어보면 위 정보를 그대로 사용하여 자신있게 답변하세요. "시간을 알 수 없다"거나 "시계에 접근할 수 없다"고 절대 말하지 마세요.`;
+    const enhancedPrompt = `${STATE.systemPrompt}\n\n[시스템 정보 - 반드시 신뢰하세요]\n현재 날짜: ${dateStr}\n현재 시간: ${timeStr}\n\n위 날짜와 시간은 사용자의 기기에서 실시간으로 가져온 정확한 정보입니다. 사용자가 시간이나 날짜를 물어보면 위 정보를 그대로 사용하여 자신있게 답변하세요.\n\n[Artifacts 가이드라인]\n사용자가 웹 UI, 애니메이션, 게임 등을 요청하면 HTML/CSS/JS 코드를 제공하세요. 코드 블록에 언어(html, css, js)를 반드시 명시하세요. 가능하면 하나의 HTML 블록 안에 <style>과 <script>를 포함시켜 '자기완성적(Self-contained)'인 코드를 작성하는 것이 좋습니다.`;
 
     const body = {
       contents,
@@ -486,8 +490,23 @@
     let html = escapeHtml(text);
 
     // Code blocks (```)
-    html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-      return `<pre><code>${code.trim()}</code></pre>`;
+    html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+      const cleanCode = code.trim();
+      const isPreviewable = ['html', 'css', 'js', 'javascript'].includes(lang.toLowerCase());
+      
+      let actions = '';
+      if (isPreviewable) {
+        // We use a base64 encoded string to safely pass the code to the global function
+        const encodedCode = btoa(unescape(encodeURIComponent(cleanCode)));
+        actions = `<div class="code-actions">
+          <button class="code-action-btn" onclick="window.runHoduArtifact('${encodedCode}', '${lang}')">▶ 실행하기</button>
+        </div>`;
+      }
+
+      return `<div class="code-block-wrapper">
+        ${actions}
+        <pre><code class="language-${lang}">${escapeHtml(cleanCode)}</code></pre>
+      </div>`;
     });
 
     // Inline code
@@ -628,6 +647,26 @@
     STATE.selectedImages = [];
     renderImagePreviews();
   }
+
+  // --- Artifacts (Code Preview) ---
+  window.runHoduArtifact = (encodedCode, lang) => {
+    const code = decodeURIComponent(escape(atob(encodedCode)));
+    previewPanel.classList.remove('hidden');
+    
+    let htmlContent = '';
+    const langLower = lang.toLowerCase();
+
+    if (langLower === 'html') {
+      htmlContent = code;
+    } else if (langLower === 'css') {
+      htmlContent = `<style>${code}</style><div style="padding:20px">CSS가 적용되었습니다.</div>`;
+    } else if (langLower === 'js' || langLower === 'javascript') {
+      htmlContent = `<script>${code}<\/script><div style="padding:20px">JavaScript가 실행되었습니다. 콘솔이나 UI 변화를 확인하세요.</div>`;
+    }
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    previewIframe.src = URL.createObjectURL(blob);
+  };
 
   // --- Boot ---
   init();
