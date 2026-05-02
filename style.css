@@ -533,6 +533,74 @@ a:hover { text-decoration: underline; }
   margin-top: 8px;
 }
 
+.input-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+.input-action-btn:hover { color: var(--accent-1); }
+
+.image-preview-container {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+.image-preview {
+  position: relative;
+  width: 60px; height: 60px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-accent);
+}
+.image-preview img { width: 100%; height: 100%; object-fit: cover; }
+.remove-image-btn {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 18px; height: 18px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#voice-mode-btn.active {
+  background: var(--user-bubble);
+  color: #fff;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+  animation: voicePulse 2s infinite;
+}
+@keyframes voicePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.chat-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: var(--radius-md);
+  margin-top: 8px;
+  display: block;
+  cursor: pointer;
+  transition: transform var(--transition-normal);
+}
+.chat-image:hover { transform: scale(1.02); }
+
 /* Error Message */
 .error-toast {
   position: fixed;

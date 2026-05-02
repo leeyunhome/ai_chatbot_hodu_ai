@@ -14,6 +14,8 @@
       "당신은 친절하고 도움이 되는 AI 어시스턴트 'Hodu'입니다. 한국어로 자연스럽게 대화하며, 사용자의 질문에 정확하고 유용한 답변을 제공합니다.",
     history: JSON.parse(localStorage.getItem('nova_history') || '[]'),
     isStreaming: false,
+    isVoiceMode: false,
+    selectedImages: [], // Array of { data: base64, mimeType: string }
   };
 
   // --- DOM Elements ---
@@ -39,6 +41,10 @@
   const clearHistoryBtn = $('#clear-history-btn');
   const headerStatus = $('#header-status');
   const micBtn = $('#mic-btn');
+  const voiceModeBtn = $('#voice-mode-btn');
+  const imageBtn = $('#image-btn');
+  const imageInput = $('#image-input');
+  const imagePreviewContainer = $('#image-preview-container');
 
   // --- Initialize ---
   function init() {
@@ -86,6 +92,9 @@
     saveSettingsBtn.addEventListener('click', handleSaveSettings);
     clearHistoryBtn.addEventListener('click', handleClearHistory);
     micBtn.addEventListener('click', handleMicClick);
+    voiceModeBtn.addEventListener('click', toggleVoiceMode);
+    imageBtn.addEventListener('click', () => imageInput.click());
+    imageInput.addEventListener('change', handleImageSelect);
 
     // Suggestion chips
     document.querySelectorAll('.suggestion-chip').forEach(chip => {
@@ -191,21 +200,34 @@
     if (welcomeMsg) welcomeMsg.style.display = 'none';
 
     // Add user message
-    addMessage('user', msg);
-    STATE.history.push({ role: 'user', parts: [{ text: msg }] });
+    addMessage('user', msg, STATE.selectedImages);
+    
+    // Add to history
+    const userParts = [{ text: msg }];
+    STATE.selectedImages.forEach(img => {
+      userParts.push({
+        inlineData: {
+          data: img.data,
+          mimeType: img.mimeType
+        }
+      });
+    });
+    
+    STATE.history.push({ role: 'user', parts: userParts });
     saveHistory();
 
-    // Clear input
+    // Clear input & images
     messageInput.value = '';
     messageInput.style.height = 'auto';
     sendBtn.disabled = true;
+    clearImages();
 
     // Show typing & call API
     const typingEl = showTyping();
     callGeminiAPI(msg, typingEl);
   }
 
-  function addMessage(role, content) {
+  function addMessage(role, content, images = []) {
     const row = document.createElement('div');
     row.className = `message-row ${role}`;
 
@@ -216,7 +238,21 @@
     const bubbleWrap = document.createElement('div');
     const bubble = document.createElement('div');
     bubble.className = 'message-bubble';
-    bubble.innerHTML = role === 'ai' ? renderMarkdown(content) : escapeHtml(content);
+    
+    // Add images if any
+    if (images.length > 0) {
+      images.forEach(img => {
+        const imgEl = document.createElement('img');
+        imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+        imgEl.className = 'chat-image';
+        imgEl.onclick = () => window.open(imgEl.src);
+        bubble.appendChild(imgEl);
+      });
+    }
+
+    const textEl = document.createElement('div');
+    textEl.innerHTML = role === 'ai' ? renderMarkdown(content) : escapeHtml(content);
+    bubble.appendChild(textEl);
 
     const time = document.createElement('div');
     time.className = 'message-time';
@@ -318,6 +354,11 @@
       addMessage('ai', text);
       STATE.history.push({ role: 'model', parts: [{ text }] });
       saveHistory();
+
+      // If voice mode is on, speak the response
+      if (STATE.isVoiceMode) {
+        speak(text);
+      }
 
     } catch (error) {
       removeTyping();
@@ -502,6 +543,90 @@
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 400);
     }, 3000);
+  }
+
+  // --- Voice Mode (TTS) ---
+  function toggleVoiceMode() {
+    STATE.isVoiceMode = !STATE.isVoiceMode;
+    voiceModeBtn.classList.toggle('active', STATE.isVoiceMode);
+    if (STATE.isVoiceMode) {
+      showError('음성 대화 모드가 켜졌습니다. AI가 대답을 읽어줍니다.', 'success');
+    } else {
+      window.speechSynthesis.cancel();
+      showError('음성 대화 모드가 꺼졌습니다.');
+    }
+  }
+
+  function speak(text) {
+    window.speechSynthesis.cancel(); // Stop any current speech
+    
+    // Clean text for speech (remove markdown)
+    const cleanText = text.replace(/[*_#`]/g, '').replace(/\[.*?\]\(.*?\)/g, '');
+    
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'ko-KR';
+    utterance.rate = 1.0;
+    
+    utterance.onend = () => {
+      // If voice mode is still on, restart mic automatically for a natural flow
+      if (STATE.isVoiceMode && !STATE.isStreaming) {
+        setTimeout(() => handleMicClick(), 500);
+      }
+    };
+    
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // --- Image Handling ---
+  async function handleImageSelect(e) {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target.result.split(',')[1];
+        const imageData = {
+          data: base64,
+          mimeType: file.type,
+          id: Date.now() + Math.random()
+        };
+        STATE.selectedImages.push(imageData);
+        renderImagePreviews();
+      };
+      reader.readAsDataURL(file);
+    }
+    imageInput.value = ''; // Reset for same file select
+  }
+
+  function renderImagePreviews() {
+    if (STATE.selectedImages.length > 0) {
+      imagePreviewContainer.classList.remove('hidden');
+    } else {
+      imagePreviewContainer.classList.add('hidden');
+    }
+
+    imagePreviewContainer.innerHTML = '';
+    STATE.selectedImages.forEach(img => {
+      const preview = document.createElement('div');
+      preview.className = 'image-preview';
+      preview.innerHTML = `
+        <img src="data:${img.mimeType};base64,${img.data}">
+        <button class="remove-image-btn" onclick="window.removeHoduImage(${img.id})">✕</button>
+      `;
+      imagePreviewContainer.appendChild(preview);
+    });
+    sendBtn.disabled = false;
+  }
+
+  window.removeHoduImage = (id) => {
+    STATE.selectedImages = STATE.selectedImages.filter(img => img.id !== id);
+    renderImagePreviews();
+  };
+
+  function clearImages() {
+    STATE.selectedImages = [];
+    renderImagePreviews();
   }
 
   // --- Boot ---
