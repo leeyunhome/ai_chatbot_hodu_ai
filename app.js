@@ -677,15 +677,28 @@
 
   async function processPDF(file) {
     try {
+      console.log('Processing PDF:', file.name);
+      document.body.style.cursor = 'wait';
+      
+      if (typeof pdfjsLib === 'undefined') {
+        throw new Error('PDF 라이브러리가 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       let fullText = '';
       
+      console.log(`PDF loaded: ${pdf.numPages} pages`);
+
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         const pageText = textContent.items.map(item => item.str).join(' ');
         fullText += pageText + '\n';
+      }
+
+      if (!fullText.trim()) {
+        showError('PDF에서 텍스트를 추출할 수 없습니다. 이미지 기반 PDF일 수 있습니다.');
       }
 
       STATE.selectedFiles.push({
@@ -695,9 +708,12 @@
         id: Date.now() + Math.random()
       });
       renderFilePreviews();
+      console.log('PDF processing complete');
     } catch (error) {
       console.error('PDF error:', error);
-      showError('PDF 파일을 읽는 중 오류가 발생했습니다.');
+      showError('PDF 파일을 읽는 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+      document.body.style.cursor = 'default';
     }
   }
 
