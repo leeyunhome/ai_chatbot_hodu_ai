@@ -3,6 +3,9 @@
 (function () {
   'use strict';
 
+  console.log('Hodu AI App Initializing...');
+  console.log('SpeechRecognition Support:', !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+
   // --- State ---
   const STATE = {
     apiKey: localStorage.getItem('nova_api_key') || '',
