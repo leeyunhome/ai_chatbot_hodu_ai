@@ -509,7 +509,17 @@
     if (welcomeMsg) welcomeMsg.style.display = 'none';
     STATE.history.forEach(msg => {
       const role = msg.role === 'user' ? 'user' : 'ai';
-      addMessage(role, msg.parts[0].text);
+      const textPart = msg.parts.find(p => p.text);
+      const imageParts = msg.parts.filter(p => p.inlineData);
+      
+      const files = imageParts.map(p => ({
+        type: 'image',
+        mimeType: p.inlineData.mimeType,
+        data: p.inlineData.data
+      }));
+
+      // Note: PDF text context is already inside msg.parts[0].text for user
+      addMessage(role, textPart ? textPart.text : '', files);
     });
   }
 
@@ -694,8 +704,10 @@
   function renderFilePreviews() {
     if (STATE.selectedFiles.length > 0) {
       imagePreviewContainer.classList.remove('hidden');
+      $('.input-container').style.borderColor = 'var(--accent-1)';
     } else {
       imagePreviewContainer.classList.add('hidden');
+      $('.input-container').style.borderColor = '';
     }
 
     imagePreviewContainer.innerHTML = '';
