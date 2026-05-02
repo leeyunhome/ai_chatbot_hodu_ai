@@ -35,6 +35,7 @@
   const saveSettingsBtn = $('#save-settings-btn');
   const clearHistoryBtn = $('#clear-history-btn');
   const headerStatus = $('#header-status');
+  const micBtn = $('#mic-btn');
 
   // --- Initialize ---
   function init() {
@@ -81,6 +82,7 @@
     toggleSettingsKey.addEventListener('click', () => toggleVisibility(settingsApiKey));
     saveSettingsBtn.addEventListener('click', handleSaveSettings);
     clearHistoryBtn.addEventListener('click', handleClearHistory);
+    micBtn.addEventListener('click', handleMicClick);
 
     // Suggestion chips
     document.querySelectorAll('.suggestion-chip').forEach(chip => {
@@ -105,6 +107,76 @@
     STATE.apiKey = key;
     localStorage.setItem('nova_api_key', key);
     showChatScreen();
+  }
+
+  // --- Voice Recognition ---
+  let recognition = null;
+  let isRecording = false;
+
+  function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showError('이 브라우저는 음성 인식을 지원하지 않습니다.');
+      micBtn.style.display = 'none';
+      return null;
+    }
+
+    const rec = new SpeechRecognition();
+    rec.lang = 'ko-KR';
+    rec.continuous = false;
+    rec.interimResults = false;
+
+    rec.onstart = () => {
+      isRecording = true;
+      micBtn.classList.add('active');
+      messageInput.placeholder = '듣고 있어요...';
+    };
+
+    rec.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      messageInput.value = transcript;
+      handleInputResize();
+      // Optional: auto-send after a short delay
+      // setTimeout(() => sendMessage(), 500);
+    };
+
+    rec.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error !== 'no-speech') {
+        showError('음성 인식 중 오류가 발생했습니다: ' + event.error);
+      }
+      stopRecording();
+    };
+
+    rec.onend = () => {
+      stopRecording();
+    };
+
+    return rec;
+  }
+
+  function handleMicClick() {
+    if (!recognition) {
+      recognition = initSpeechRecognition();
+    }
+
+    if (!recognition) return;
+
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('Start error:', e);
+      }
+    }
+  }
+
+  function stopRecording() {
+    isRecording = false;
+    micBtn.classList.remove('active');
+    messageInput.placeholder = '메시지를 입력하세요...';
   }
 
   // --- Chat Logic ---
